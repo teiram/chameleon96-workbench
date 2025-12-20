@@ -51,7 +51,7 @@ For this we will make use of [buildroot](https://buildroot.org/) with a custom c
 - Go into the buildroot directory and run:
   	```
     cd buildroot
-	make defconfig BR2_DEFCONFIG=../config/chameleon96_config O=../build`
+	make defconfig BR2_DEFCONFIG=../config/chameleon96_config O=../build
 	```
 - Now buildroot is configured in the build directory to perform a build customized for the chameleon96 board. It will also take care of creating a toolchain that we can later use to compile software to be run on the Cyclone V HPS. Just go into build and run:
 	```
