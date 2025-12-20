@@ -7,15 +7,15 @@ In this chapter we will create an SD card containing:
  - A root filesystem the Linux kernel can mount and use to bring us to the login prompt.
 
 ### Preparing the SD Card
-There are plenty of tutorials around on how to do this for different boards based on the Cyclone V socfpga and the Chameleon96 is not different. The ROM in the Cyclone V HPS side is able to boot from the SD Card and this is the method we will follow. For it to work it needs a partition with type A2. This partition will hold the SPL code (4 copies of it, 64Kbytes each) and the U-Boot image right after. 
+There are plenty of tutorials around on how to do this for different boards based on the Cyclone V socfpga and the Chameleon96 is not different. The ROM in the Cyclone V HPS side is able to boot from the SD Card and this is the method we will follow. For it to work it needs a SD card with a special partition of type A2: This partition will hold the SPL code (4 copies of it, 64Kbytes each) and the U-Boot image right after.
 
 We will also need a FAT32 partition (type 0b) where the files to be accessed by U-Boot as part of the initialization process shall be placed. These are:
  - The kernel zImage
- - The device dtb (more on this later)
+ - The device dtb
  - The u-boot script
- - The FPGA initialization code (rbf).
+ - The FPGA initialization code (rbf)
 
-Finally we need a root filesystem for Linux to boot from. We will create an ext4 partition for that, but probably other type of partition could be chosen.
+Finally we need a root filesystem for Linux to boot into. We will create an ext4 partition for that, but probably other partition types/filesystems could be chosen as far as the linux kernel suports it.
 
 Partitions are normally created in a non-natural order:
  - Partition A2 goes first in the drive, but it's the third partition in the partition table (for instance /dev/sda3).
@@ -24,7 +24,7 @@ Partitions are normally created in a non-natural order:
 
 Whether this is really needed or enforced by the hardware was not checked so far. Let's just say that this works and a different organization serves no purpose.
 
-So, go get your favourite partition editor (like fdisk or parted) and create your partitions so that your drive looks like this:
+So, go get your favourite partition editor (like fdisk or parted) and create your partitions so that your drive looks more or less like this:
 
 ```
 Device     Boot  Start    End Sectors  Size Id Type
@@ -33,29 +33,31 @@ Device     Boot  Start    End Sectors  Size Id Type
 /dev/sda3         2048  22528   20481   10M a2 unknown
 ```
 
-Sizes for the partitions are not enforced. Normally a partition of 2MB should suffice for A2, and for 0B (FAT32) you would need at least around 20MB, but you can make it bigger. Use the rest of the SD Card capacity for the rootfs partition.
+Sizes for the partitions are not enforced. Normally a partition of 2MB should suffice for A2, and for 0B (FAT32) you would need at least around 20MB, but you can make it bigger (in case you want to keep some backup files there during your tests). Use the rest of the SD Card capacity for the rootfs partition.
 
 
 ### Building the artifacts to populate the SD card
 
 For this we will make use of [buildroot](https://buildroot.org/) with a custom configuration that will allow us to build all the artifacts.
 
-- Clone buildroot into the root directory
-
-	`git clone https://gitlab.com/buildroot.org/buildroot.git
-
 - Create a build directory in the root folder of this project.
 
-	`mkdir build
+	`mkdir build`
+
+- Clone buildroot into the root directory
+
+	`git clone https://gitlab.com/buildroot.org/buildroot.git`
 
 - Go into the buildroot directory and run:
-	`make defconfig BR2_DEFCONFIG=../config/chameleon96_config O=../build
-
+  	```
+    cd buildroot
+	make defconfig BR2_DEFCONFIG=../config/chameleon96_config O=../build`
+	```
 - Now buildroot is configured in the build directory to perform a build customized for the chameleon96 board. It will also take care of creating a toolchain that we can later use to compile software to be run on the Cyclone V HPS. Just go into build and run:
-
-	`make
-
- 
+	```
+ 	cd ../build
+	make
+	```
 - The following artifacts should be available once the build is done:
 	- U-Boot with SPL in: build/uboot-chameleon96/u-boot-with-spl.sfp
 	- Linux kernel in: images/zImage
@@ -64,16 +66,16 @@ For this we will make use of [buildroot](https://buildroot.org/) with a custom c
 
 - We need also the U-Boot script, there is a source file and makefile in the u-boot-scr folder that can be used to generate an u-boot.scr image after the u-boot.script we need for this purpose. Just cd into that folder and run
 
-	`make
+	`make`
 
 
 ### Creating the SD Card
 
 - Transfer the u-boot-with-spl.sfp to the beginning of the A2 partition. On Linux this can be done with the dd tool, just something like:
 
-	` dd if=u-boot-with-spl.sfp of=/dev/<disk>3 
+	`dd if=u-boot-with-spl.sfp of=/dev/<disk>3`
 
-where <disk> is the name of the SD Card device (for instance sda). To keep the tradition I will warn you of biblic disasters if you happen to use a wrong partition. Consider yourself warned.
+where <disk> is the name of the SD Card device (for instance sda). To keep the tradition I will warn you of biblical disasters if you happen to use a wrong device name. Consider yourself warned.
 
 - Copy the following files to the VFAT partition of the SD Card:
 	- zImage
@@ -104,7 +106,7 @@ You should rather connect the serial port of the chameleon96 to your computer in
 #### SDK
 You can create a toolchain tarball running the sdk make target in the build directory:
 
-`make sdk
+	`make sdk`
 
 that will tar the toolchain as: images/arm-ch96-linux-gnueabi_sdk-buildroot.tar.gz
 
@@ -114,5 +116,14 @@ You can use this toolchain to build extra software for the Chameleon96 ARM proce
 
 In this reference implementation the RF LEDs are forwarded from the FPGA fabric to the HPS by means of an AXI lightweight MM bridge. Therefore they are available on the linux side as memory mapped GPIOs.
 
-In the folder hps_led there is a simple program to exercise the leds. The program takes an integer argument, from where the two less significant bits are taken to decide the status of the LEDs.
+In the folder hps_led there is a simple program to exercise the leds. The program takes an integer argument, from where the two less significant bits are taken to decide the status of the LEDs. The provided makefile expects the cross compiler to be in the path and be named `arm-ch96-linux-gnueabi-gcc`, which is how buildroot make `sdk target` should create it with our provided configuration.
+
+#### HDMI output
+
+The TDA19988 HDMI transmitter chip is not properly initialized by SPL and/or u-boot. The preferred way would be U-Boot or the linux Kernel by including the proper DTS nodes and force the driver to be installed. Anyways since the relevant i2c peripheral can be accessed from the linux side (it is forwarded to the FPGA fabric by the HPS configuration), we can set the TDA19988 registers using the i2c linux utility. I have provided these three scripts:
+- hdmi/mode720.sh. Enables HDMI and sets mode to 1080x720 (720p).
+- hdmi/mode1080.sh. Enables HDMI and sets mode to 1920x1080.
+- hdmi/hdmitest.sh. Sets a test pattern on the HDMI output (it needs syncs to be provided somehow tho).
+
+The script can be copied to the root filesystem and also call it as part of the linux boot process. Probably it can be integrated into buildroot rootfs buildilng process.
 
