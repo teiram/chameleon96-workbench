@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# Chameleon96 HDMI: bring up the TDA19988 transmitter.
+#
+# The HPS I2C2 controller (Linux i2c-2) is the only master programming the
+# TDA19988; there is no FPGA-side init. Program it for 1280x720@60 (matching
+# the menu core default and MiSTer.ini video_mode=16) as soon as the I2C bus
+# is up. Switched to 1080p by running /usr/sbin/mode1080.sh manually and
+# setting video_mode=26 in MiSTer.ini.
+#
+case "$1" in
+  start)
+	printf "HDMI: programming TDA19988 (i2c-2)... "
+
+	# wait for the i2c-2 bus device to appear
+	n=0
+	while [ ! -e /sys/bus/i2c/devices/i2c-2 ] && [ $n -lt 30 ]; do
+		sleep 1
+		n=$((n+1))
+	done
+
+	if [ ! -e /sys/bus/i2c/devices/i2c-2 ]; then
+		echo "FAIL (no i2c-2)"
+		exit 1
+	fi
+
+	if /usr/sbin/mode720.sh; then
+		echo "OK"
+	else
+		echo "FAIL"
+		exit 1
+	fi
+	;;
+  stop)
+	;;
+  restart|reload)
+	"$0" start
+	;;
+esac

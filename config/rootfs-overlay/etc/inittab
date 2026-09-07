@@ -1,0 +1,36 @@
+# /etc/inittab init(8) configuration for BusyBox
+#
+# Format for each entry: <id>:<runlevels>:<action>:<process>
+#
+# <id>: WARNING: This field has a non-traditional meaning for BusyBox init!
+#	The id field is used by BusyBox init to specify the controlling tty for
+#	the specified process to run on.  The contents of this field are
+#	appended to "/dev/" and used as-is.
+#
+# <action>: Valid actions include: sysinit, wait, once, respawn, askfirst,
+#                                  shutdown, restart and ctrlaltdel.
+
+::sysinit:/etc/init.d/rcS
+
+# Start an "askfirst" shell on the console (serial ttyS0)
+::askfirst:-/bin/sh
+
+# Start an "askfirst" shell on /dev/tty2-4
+tty2::askfirst:-/bin/sh
+tty3::askfirst:-/bin/sh
+tty4::askfirst:-/bin/sh
+
+# Login getty on tty1 (shown on the HDMI framebuffer via fbcon)
+tty1::respawn:/sbin/getty 38400 tty1
+
+# /sbin/getty invocations for selected ttys
+tty5::respawn:/sbin/getty 38400 tty5
+tty6::respawn:/sbin/getty 38400 tty6
+
+# Stuff to do when restarting the init process
+::restart:/sbin/init
+
+# Stuff to do before rebooting
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r
+::shutdown:/sbin/swapoff -a

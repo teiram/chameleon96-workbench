@@ -1,4 +1,4 @@
 echo ** Loading RBF file to ${loadaddr}
-load mmc 0:1 ${loadaddr} hps-ch96.rbf
+load mmc 0:1 ${loadaddr} Menu_MiSTer.rbf
 echo ** Programming FPGA with file of size ${filesize}
 fpga load 0 ${loadaddr} ${filesize}
