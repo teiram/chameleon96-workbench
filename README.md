@@ -44,13 +44,18 @@ After a successful build, `build/images/` contains:
 
 | File | Purpose | Partition |
 |------|---------|-----------|
+| **`sdcard.img`** | Complete bootable SD card image | whole card |
 | `u-boot-with-spl.sfp` | SPL + U-Boot | A2 |
 | `zImage` | Linux kernel | FAT |
 | `socfpga_cyclone5_chameleon96.dtb` | Device tree | FAT |
 | `Menu_MiSTer.rbf` | Boot core (programs the FPGA) | FAT |
 | `u-boot.scr` | U-Boot script (loads the RBF, boots the kernel) | FAT |
 | `extlinux/extlinux.conf` | U-Boot extlinux boot entry | FAT |
-| `rootfs.tar` | Root filesystem with MiSTer + runtime libs | ext4 |
+| `rootfs.tar` / `rootfs.ext4` | Root filesystem with MiSTer + runtime libs | ext4 |
+
+`sdcard.img` is assembled by [genimage](config/genimage.cfg) in the
+post-image step: it recreates the layout below, so there is no need to
+partition or copy anything by hand.
 
 Main_MiSTer is cloned into `build/Main_MiSTer` on the first run and compiled
 with the buildroot host toolchain; its shared libs (imlib2, freetype, png, z,
@@ -83,38 +88,30 @@ Other optional overrides:
 
 ## Creating the SD card
 
-Three partitions (the order in the partition table does not matter):
+The build produces a complete bootable `build/images/sdcard.img`, assembled by
+genimage (`config/genimage.cfg`) into the same layout:
 
+| # | Partition | Contents |
+|---|-----------|----------|
+| 1 | FAT (100M, bootable) | `zImage`, DTB, `Menu_MiSTer.rbf`, `u-boot.scr`, `extlinux/extlinux.conf` |
+| 2 | ext4 (300M) | rootfs with the MiSTer binary and its runtime libs |
+| 3 | A2 (10M) | `u-boot-with-spl.sfp` (SPL + U-Boot, read by the HPS boot ROM at 1M) |
+
+Write it to the SD card with:
+
+```sh
+dd if=build/images/sdcard.img of=/dev/sdX bs=4M conv=fsync status=progress
 ```
-Device     Boot  Start    End Sectors  Size Id Type
-/dev/sdX1        22529 227329  204801  100M  b W95 FAT32
-/dev/sdX2       227330 841730  614401  300M 83 Linux
-/dev/sdX3         2048  22528   20481   10M a2 unknown
-```
 
-- Write the SPL+U-Boot to the A2 partition:
-
-  ```sh
-  dd if=u-boot-with-spl.sfp of=/dev/sdX3
-  ```
-
-  (double-check the device name before running this)
-
-- Copy to the FAT partition:
-  - `zImage`
-  - `socfpga_cyclone5_chameleon96.dtb`
-  - `Menu_MiSTer.rbf`
-  - `u-boot.scr`
-  - `extlinux/extlinux.conf` (as `extlinux/extlinux.conf`)
-
-- Extract `rootfs.tar` to the ext4 partition.
+(double-check the device name before running this)
 
 ## Booting
 
 - The SPL initializes the HPS and loads U-Boot.
-- U-Boot runs `u-boot.scr`, which programs the FPGA with `Menu_MiSTer.rbf`.
-- U-Boot boots the kernel via extlinux; the rootfs comes up and starts the
-  MiSTer application.
+- U-Boot reads `u-boot.scr` from the FAT partition, which programs the FPGA
+  with `Menu_MiSTer.rbf`.
+- U-Boot boots the kernel via extlinux (`extlinux/extlinux.conf`); the rootfs
+  comes up and starts the MiSTer application.
 - The menu core drives the LEDs on the Chameleon96 base board; a login prompt
   is available on the serial console (root, no password). HDMI output is
   brought up by `/etc/init.d/S99hdmi` (1280x720@60, matching MiSTer.ini).

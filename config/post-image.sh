@@ -35,3 +35,8 @@ LABEL Linux Chameleon96 (MiSTer)
 	FDT ../socfpga_cyclone5_chameleon96.dtb
 	APPEND root=/dev/mmcblk0p2 rw rootwait earlycon=uart8250,mmio32,0xffc02000 console=ttyS0,115200n8
 EOF
+
+# Assemble the complete SD card image (sdcard.img) with genimage.
+# Uses buildroot's genimage.sh wrapper (needs BUILD_DIR/BINARIES_DIR/BR2_CONFIG,
+# all exported by buildroot).
+"$ROOT/buildroot/support/scripts/genimage.sh" -c "$ROOT/config/genimage.cfg"
