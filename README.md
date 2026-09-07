@@ -37,6 +37,9 @@ cd ..
 build, and prints the resulting artifacts. The `buildroot/` and `build/`
 directories are git-ignored.
 
+To clean up: `./clean.sh` removes the generated artifacts but keeps the
+download cache, `./distclean.sh` removes both.
+
 ## Artifacts
 
 After a successful build, `build/images/` contains:
