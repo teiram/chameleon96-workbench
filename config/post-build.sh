@@ -3,17 +3,20 @@
 # Builds Main_MiSTer for the Chameleon96 and installs it, with its runtime
 # shared libs, into the target root filesystem ($1).
 #
-# Uses the proven gcc-arm-10.2 hard-float toolchain (arm-none-linux-gnueabihf)
-# rather than the buildroot SDK one - it already produces a working MiSTer
-# binary and links against the hard-float glibc of this rootfs.
+# Self-contained: the Main_MiSTer sources are cloned from GitHub into
+# $ROOT/build/Main_MiSTer on the first run, so no local checkout is needed.
 set -e
 
 TARGET_DIR=$1
-ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-MISTER_SRC="$ROOT/Main_MiSTer"
-TOOLCHAIN_BIN="$ROOT/toolchains/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf/bin"
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+MISTER_SRC="$ROOT/build/Main_MiSTer"
+MISTER_UPSTREAM="https://github.com/teiram/Main_MiSTer_ch96"
 
-export PATH="$TOOLCHAIN_BIN:$PATH"
+if [ ! -d "$MISTER_SRC/.git" ]; then
+    echo "== Cloning Main_MiSTer from $MISTER_UPSTREAM"
+    mkdir -p "$(dirname "$MISTER_SRC")"
+    git clone --depth 1 "$MISTER_UPSTREAM" "$MISTER_SRC"
+fi
 
 make -C "$MISTER_SRC" clean
 make -C "$MISTER_SRC"
