@@ -1,4 +1,4 @@
-CC=arm-ch96-linux-gnueabi-gcc
+CC=arm-ch96-linux-gnueabihf-gcc
 
 gpio: gpio.c
 	$(CC) -o gpio gpio.c	

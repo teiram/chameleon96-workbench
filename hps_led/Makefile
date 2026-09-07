@@ -1,4 +1,4 @@
-CC=arm-ch96-linux-gnueabi-gcc
+CC=arm-ch96-linux-gnueabihf-gcc
 
 hps_led: hps_led.c
 	$(CC) -o hps_led hps_led.c	
