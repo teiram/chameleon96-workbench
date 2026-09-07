@@ -16,17 +16,10 @@ export PATH="$HOST_DIR/bin:$PATH"
 install -m 644 "$BASE_DIR/build/uboot-custom/u-boot-with-spl.sfp" \
     "$BINARIES_DIR/u-boot-with-spl.sfp"
 
-# Boot core (menu) for the FAT partition, fetched from the release directory
-# of the Menu_MiSTer_ch96 GitHub repo. The newest menu_ch96_<date>.rbf is
-# picked automatically; override the URL with MENU_RBF_URL if needed.
-if [ -z "$MENU_RBF_URL" ]; then
-    MENU_RBF_URL=$(curl -fsSL \
-        "https://api.github.com/repos/teiram/Menu_MiSTer_ch96/contents/releases" \
-        | sed -n 's/.*"download_url": "\(.*\.rbf\)".*/\1/p' | tail -1)
-fi
-[ -n "$MENU_RBF_URL" ] || { echo "ERROR: could not locate Menu_MiSTer RBF" >&2; exit 1; }
-echo "== Fetching Menu_MiSTer RBF: $MENU_RBF_URL"
-curl -fsSL "$MENU_RBF_URL" -o "$BINARIES_DIR/Menu_MiSTer.rbf"
+# Boot core (menu) for the FAT partition. It was already fetched into the
+# rootfs by the post-build script (target/media/fat/menu.rbf); reuse it.
+install -m 644 "$BASE_DIR/target/media/fat/menu.rbf" \
+    "$BINARIES_DIR/Menu_MiSTer.rbf"
 
 # Boot script (programs the FPGA before booting the kernel)
 mkimage -T script -n "Bootscript" -C none \
