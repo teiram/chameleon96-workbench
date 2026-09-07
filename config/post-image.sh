@@ -12,8 +12,9 @@ BINARIES_DIR=$1
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 export PATH="$HOST_DIR/bin:$PATH"
 
-# SPL + U-Boot (legacy buildroot u-boot build dir; package name is "custom")
-install -m 644 "$BASE_DIR/build/uboot-custom/u-boot-with-spl.sfp" \
+# SPL + U-Boot. Modern buildroot names the custom-source build dir
+# "uboot-<git version>" (e.g. uboot-chameleon96), not the old uboot-custom.
+install -m 644 "$BASE_DIR/build"/uboot-*/u-boot-with-spl.sfp \
     "$BINARIES_DIR/u-boot-with-spl.sfp"
 
 # Boot core (menu) for the FAT partition. It was already fetched into the
