@@ -4,7 +4,11 @@
 # shared libs, into the target root filesystem ($1).
 #
 # Self-contained: the Main_MiSTer sources are cloned from GitHub into
-# $ROOT/build/Main_MiSTer on the first run, so no local checkout is needed.
+# $ROOT/build/Main_MiSTer on the first run, and the binary is built with the
+# buildroot host toolchain (arm-ch96-linux-gnueabihf-, already on PATH). To
+# reuse a toolchain generated once via `make sdk`, point CROSS_COMPILE at its
+# bin prefix, e.g.:
+#   CROSS_COMPILE=/path/to/sdk/bin/arm-ch96-linux-gnueabihf
 set -e
 
 TARGET_DIR=$1
@@ -18,8 +22,19 @@ if [ ! -d "$MISTER_SRC/.git" ]; then
     git clone --depth 1 "$MISTER_UPSTREAM" "$MISTER_SRC"
 fi
 
+# Toolchain selection: buildroot host cross-compiler by default, or a
+# user-supplied SDK toolchain when CROSS_COMPILE is defined.
+if [ -n "$CROSS_COMPILE" ]; then
+    case "$CROSS_COMPILE" in
+        *-) PREFIX="$CROSS_COMPILE" ;;
+        *)  PREFIX="$CROSS_COMPILE-" ;;
+    esac
+else
+    PREFIX="arm-ch96-linux-gnueabihf"
+fi
+
 make -C "$MISTER_SRC" clean
-make -C "$MISTER_SRC"
+make -C "$MISTER_SRC" CC="$PREFIX-gcc" LD="$PREFIX-ld" STRIP="$PREFIX-strip"
 
 mkdir -p "$TARGET_DIR/media/fat"
 install -D -m 755 "$MISTER_SRC/bin/MiSTer" "$TARGET_DIR/media/fat/MiSTer"
