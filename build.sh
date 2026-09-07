@@ -12,12 +12,8 @@ set -e
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
 
-# Reuse the original workbench download cache when present (avoids re-fetching
-# the gcc/binutils/glibc tarballs). Override with BR2_DL_DIR=/some/path.
-DL_DIR="${BR2_DL_DIR:-$ROOT/../../chameleon96-workbench/buildroot/dl}"
-if [ ! -d "$DL_DIR" ]; then
-    DL_DIR="$ROOT/buildroot/dl"
-fi
+# Download cache. Override with BR2_DL_DIR=/some/path to reuse a cache.
+DL_DIR="${BR2_DL_DIR:-$ROOT/buildroot/dl}"
 
 echo "== Buildroot config (O=$ROOT/build, dl=$DL_DIR)"
 make -C "$ROOT/buildroot" O="$ROOT/build" defconfig \
