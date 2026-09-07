@@ -40,11 +40,12 @@ mkdir -p "$TARGET_DIR/media/fat"
 install -D -m 755 "$MISTER_SRC/bin/MiSTer" "$TARGET_DIR/media/fat/MiSTer"
 
 # Menu (boot) core for the rootfs, fetched from the release directory of the
-# Menu_MiSTer_ch96 GitHub repo. The newest menu_ch96_<date>.rbf is picked
+# Menu_MiSTer_ch96 GitHub repo. The newest menu_ch96_<YYYYMMDD>.rbf is picked
 # automatically; override the URL with MENU_RBF_URL if needed.
 : "${MENU_RBF_URL:=$(curl -fsSL \
     "https://api.github.com/repos/teiram/Menu_MiSTer_ch96/contents/releases" \
-    | sed -n 's/.*"download_url": "\(.*\.rbf\)".*/\1/p' | tail -1)}"
+    | sed -n 's/.*"download_url": "\(.*menu_ch96_[0-9]\{8\}\.rbf\)".*/\1/p' \
+    | tail -1)}"
 [ -n "$MENU_RBF_URL" ] || { echo "ERROR: could not locate Menu_MiSTer RBF" >&2; exit 1; }
 echo "== Fetching Menu_MiSTer RBF: $MENU_RBF_URL"
 curl -fsSL "$MENU_RBF_URL" -o "$TARGET_DIR/media/fat/menu.rbf"
