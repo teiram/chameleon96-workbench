@@ -26,8 +26,6 @@ cross toolchain is built by buildroot itself.
 
 ```sh
 git clone https://gitlab.com/buildroot.org/buildroot.git
-cd buildroot
-git checkout 74e84b5cde   # version the chameleon96 config is tested against
 cd ..
 
 ./build.sh
