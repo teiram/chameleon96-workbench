@@ -1,9 +1,17 @@
 #!/bin/sh
 
+# /dev is a devtmpfs (kernel CONFIG_DEVTMPFS_MOUNT), hiding the /dev/pts and
+# /dev/shm baked into the rootfs; recreate them so the mounts below don't fail.
+mkdir -p /dev/pts /dev/shm
+
 # Mount the kernel virtual filesystems before anything else. /etc/fstab lists
 # proc, devpts, /dev/shm, /tmp, /run and sysfs; the S?? scripts (notably
 # S99hdmi, which needs /sys/bus/i2c) depend on them being present.
 mount -a
+
+# The /run tmpfs mount wiped its dirs; recreate /var/lock's target
+# (/var/lock -> ../run/lock) so lock-marker scripts like S30dbus work.
+mkdir -p /run/lock
 
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
