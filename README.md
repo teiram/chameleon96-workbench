@@ -24,16 +24,20 @@ cross toolchain is built by buildroot itself.
 
 ## Building
 
-```sh
-git clone https://gitlab.com/buildroot.org/buildroot.git
-cd ..
+From the working directory:
 
+```sh
+git clone <this repository>
+cd chameleon96-workbench
+git clone https://gitlab.com/buildroot.org/buildroot.git
 ./build.sh
 ```
 
-`build.sh` configures buildroot out-of-tree (output in `build/`), runs the full
-build, and prints the resulting artifacts. The `buildroot/` and `build/`
-directories are git-ignored.
+`build.sh` expects the buildroot clone next to it as `buildroot/` (run the
+clone *inside* the workbench directory, not outside of it). It configures
+buildroot out-of-tree (output in `build/`), runs the full build, and prints
+the resulting artifacts. The `buildroot/` and `build/` directories are
+git-ignored.
 
 To clean up: `./clean.sh` removes the generated artifacts but keeps the
 download cache, `./distclean.sh` removes both.
