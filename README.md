@@ -109,6 +109,24 @@ dd if=build/images/sdcard.img of=/dev/sdX bs=4M conv=fsync status=progress
 
 (double-check the device name before running this)
 
+## Resizing the SD image
+
+By default the rootfs (ext4) partition is 300M. `sdcard.img` can be
+re-assembled for a smaller/larger card and/or with an extra tree merged into
+the rootfs without a full rebuild:
+
+```sh
+./sd-resize.sh 8G                        # fit the rootfs on a 8G card
+./sd-resize.sh 1G --merge extra/         # also merge extra/ into the rootfs
+./sd-resize.sh 1G --merge extra/ --overwrite   # same, replacing existing files
+./sd-resize.sh default                   # restore the default 300M rootfs
+```
+
+`<sd-size>` is the full card size, or `default` to restore the build's default
+rootfs. The a2 and boot partitions occupy the first 112M, so the rootfs is
+sized `<sd-size> - 112M` (the card must be larger than 112M). `--merge`
+adds new files only; `--overwrite` also replaces existing ones.
+
 ## Booting
 
 - The SPL initializes the HPS and loads U-Boot.
