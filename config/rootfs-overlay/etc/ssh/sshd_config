@@ -1,0 +1,64 @@
+# /etc/ssh/sshd_config -- Chameleon96
+#
+# Reproduces how a stock MiSTer behaves: log in as root with password 1, on
+# port 22, and use the same connection for SFTP file transfer.
+#
+# WHY AN EXPLICIT FILE AND NOT BUILDROOT'S
+#
+# buildroot's openssh package installs upstream's sshd_config almost untouched:
+# the only line it ever rewrites is UsePAM, and then only when PAM is enabled.
+# It never sets PermitRootLogin. Upstream ships that directive commented out,
+# which means the compiled-in default applies -- and since OpenSSH 7.0 that
+# default is "prohibit-password". Root would be refused with a password, which
+# is exactly the login we want.
+#
+# So the one directive that makes MiSTer-style access work has to be set here.
+# The rootfs overlay is rsynced over TARGET_DIR in target-finalize, after the
+# package has installed its own copy, so this file replaces it -- the same
+# mechanism that already supplies /etc/inittab and /etc/network/interfaces.
+
+Port 22
+
+# The MiSTer login. Their documentation says "User name: root / Password: 1",
+# and their security_fixes.sh looks for exactly that password to warn that it
+# is still the one from the SD-Installer.
+PermitRootLogin yes
+PasswordAuthentication yes
+
+# Deliberate, and not redundant with the line above. If the root password ever
+# ends up empty -- BR2_TARGET_GENERIC_ROOT_PASSWD not taking, say -- this is
+# what stops the board from becoming an open shell on the LAN. A login that
+# fails is a much better failure than one that does not.
+PermitEmptyPasswords no
+
+# Public keys still work, for when typing the password gets old.
+PubkeyAuthentication yes
+AuthorizedKeysFile	.ssh/authorized_keys
+
+# Host keys are not listed here on purpose. S50sshd (installed by the openssh
+# package) runs "ssh-keygen -A" on every start, which creates whatever standard
+# keys are missing and leaves existing ones alone, so the first boot generates a
+# set unique to this board. That costs a few seconds once, and is better than
+# MiSTer's own arrangement, where the keys ship inside the SD-Installer image
+# and are therefore identical on every MiSTer in the world -- the first thing
+# their security_fixes.sh offers to fix.
+
+# SFTP, so WinSCP / FileZilla / scp work over the same connection.
+# internal-sftp is handled inside sshd itself, with no separate binary, so
+# there is no /usr/libexec path to get wrong.
+Subsystem	sftp	internal-sftp
+
+# Do not do a reverse DNS lookup on the connecting address. Default since
+# OpenSSH 6.8, spelled out because getting it wrong costs about ten seconds of
+# apparent hang per login on a LAN with no reverse zone.
+UseDNS no
+
+# There is no X server on this board.
+X11Forwarding no
+
+# Keep idle sessions from being dropped silently by a NAT or firewall timeout.
+ClientAliveInterval 120
+ClientAliveCountMax 3
+
+# Quiet the login on a board you will connect to often.
+PrintLastLog no

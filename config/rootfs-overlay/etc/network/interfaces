@@ -1,0 +1,45 @@
+# /etc/network/interfaces -- read by ifup/ifdown, which /etc/init.d/S40network
+# runs as "ifup -a" at boot.
+#
+# WHY THIS FILE IS IN THE OVERLAY
+#
+# Buildroot does not ship a fixed copy of it: package/ifupdown-scripts
+# generates one into TARGET_DIR from BR2_SYSTEM_DHCP. That symbol is empty
+# here, so the generated file gets the loopback stanza and nothing else.
+#
+# The consequence is easy to misread. With r8152 loaded, eth0 exists and comes
+# up, but nobody ever asks for a DHCP lease, so it has no IPv4 address -- and
+# the MiSTer OSD reports "No network" even though the driver is working
+# perfectly. Main_MiSTer's getNet() only counts an interface named exactly
+# "eth0" (or one starting with "wlan") carrying an AF_INET address that is not
+# 169.254.x.x, so an address is the whole test.
+#
+# Setting BR2_SYSTEM_DHCP would work too, but only after the package that
+# generates the file is rebuilt, and buildroot does not do that on a symbol
+# change. The overlay is rsynced over TARGET_DIR in target-finalize, after
+# that package installs, so this copy wins on every build with no stamp to
+# depend on -- the same way the overlay already supplies /etc/inittab.
+#
+# NOTE: buildroot's generated DHCP stanza carries "pre-up
+# /etc/network/nfs_check". That script is only installed when BR2_SYSTEM_DHCP
+# is non-empty, so copying the line here would make ifup fail on a missing
+# file. It is deliberately left out.
+
+auto lo
+iface lo inet loopback
+
+# Realtek RTL8152/RTL8153 USB Ethernet, and any other wired adapter the kernel
+# calls eth0.
+#
+# This costs the boot nothing. Buildroot builds busybox with
+# CONFIG_IFUPDOWN_UDHCPC_CMD_OPTIONS="-t1 -A3 -b -R -O search -O staticroutes":
+# one discover packet, then udhcpc goes to the background and keeps trying, so
+# "ifup -a" returns straight away either way. With no adapter present ifup
+# fails on the missing device immediately, S40network prints FAIL, and the
+# boot carries on.
+#
+# The flip side is that the address arrives a second or two AFTER ifup
+# returns, which is why Scripts/net_up.sh polls for it instead of reading
+# it once.
+auto eth0
+iface eth0 inet dhcp

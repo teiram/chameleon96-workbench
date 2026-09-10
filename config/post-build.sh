@@ -50,6 +50,22 @@ install -D -m 755 "$MISTER_SRC/bin/MiSTer" "$TARGET_DIR/media/fat/MiSTer"
 echo "== Fetching Menu_MiSTer RBF: $MENU_RBF_URL"
 curl -fsSL "$MENU_RBF_URL" -o "$TARGET_DIR/media/fat/menu.rbf"
 
+# Main_MiSTer runs OSD scripts on a framebuffer console (fb_terminal=1) by
+# fork/exec'ing a login program with an absolute path:
+#
+#   execl("/sbin/agetty", "/sbin/agetty", "-a", "root", "-l", "/tmp/script",
+#         "--nohostname", "-L", "tty2", "linux", NULL);
+#
+# buildroot's util-linux installs agetty under $exec_prefix, which is
+# /usr/sbin on a rootfs without merged /usr -- so the path MiSTer asks for may
+# not exist, and the failure is silent: the console comes up empty and the
+# script never runs. Make sure the name resolves, wherever agetty landed.
+if [ ! -e "$TARGET_DIR/sbin/agetty" ] && [ -e "$TARGET_DIR/usr/sbin/agetty" ]; then
+    echo "== Linking /sbin/agetty -> ../usr/sbin/agetty (Main_MiSTer execl's that path)"
+    mkdir -p "$TARGET_DIR/sbin"
+    ln -sf ../usr/sbin/agetty "$TARGET_DIR/sbin/agetty"
+fi
+
 mkdir -p "$TARGET_DIR/usr/lib"
 for lib in lib/imlib2/libImlib2.so \
            lib/imlib2/libfreetype.so \
