@@ -15,17 +15,34 @@
 # Start an "askfirst" shell on the console (serial ttyS0)
 ::askfirst:-/bin/sh
 
-# Start an "askfirst" shell on /dev/tty2-4
-tty2::askfirst:-/bin/sh
-tty3::askfirst:-/bin/sh
-tty4::askfirst:-/bin/sh
-
-# Login getty on tty1 (shown on the HDMI framebuffer via fbcon)
-tty1::respawn:/sbin/getty 38400 tty1
-
-# /sbin/getty invocations for selected ttys
-tty5::respawn:/sbin/getty 38400 tty5
-tty6::respawn:/sbin/getty 38400 tty6
+# NO getty ON THE FRAMEBUFFER CONSOLES -- ON PURPOSE.
+#
+# MiSTer owns them. With fb_terminal=1 (see media/fat/MiSTer.ini), running a
+# script from the OSD makes Main_MiSTer switch to tty2 and fork its own login
+# program there (Main_MiSTer_ch96/menu.cpp, MENU_SCRIPTS_FB):
+#
+#     video_chvt(2);
+#     video_fb_enable(1);
+#     execl("/sbin/agetty", "/sbin/agetty", "-a", "root", "-l", "/tmp/script",
+#           "--nohostname", "-L", "tty2", "linux", NULL);
+#
+# An init-managed shell or getty on the same tty fights it for the terminal:
+# the two take turns reading the keyboard and the script output is unreadable
+# or the tty is stolen back mid-run. A respawning getty on tty1 does the same
+# to the framebuffer console MiSTer draws on.
+#
+# A stock MiSTer settles this the same way -- its inittab has exactly one tty
+# line, on the serial port, and nothing on tty1..tty6.
+#
+# The lines are kept here, commented, because they are the first thing to
+# restore when debugging without a serial cable.
+#
+#tty2::askfirst:-/bin/sh
+#tty3::askfirst:-/bin/sh
+#tty4::askfirst:-/bin/sh
+#tty1::respawn:/sbin/getty 38400 tty1
+#tty5::respawn:/sbin/getty 38400 tty5
+#tty6::respawn:/sbin/getty 38400 tty6
 
 # Stuff to do when restarting the init process
 ::restart:/sbin/init
