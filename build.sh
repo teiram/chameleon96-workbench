@@ -176,6 +176,44 @@ make -C "$BR" O="$OUT" BR2_DL_DIR="$DL_DIR"
 # Remember what this build used, so the next run can tell what moved.
 cp "$OUT/.config" "$SNAP"
 
+# ---------------------------------------------- 6. did the kernel fragment take?
+# The fragment is merged into the kernel .config exactly once, guarded by
+# .stamp_dotconfig. When that guard wins, the build still succeeds -- it just
+# produces a kernel without the options, and the only symptom is a driver that
+# is missing from the image. Check rather than assume, and say which lines are
+# missing rather than "something is wrong".
+FRAG=$(sed -n 's/^BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="\(.*\)"$/\1/p' "$OUT/.config" | head -1)
+if [ -n "$FRAG" ]; then
+    FRAG=$(printf '%s' "$FRAG" | sed "s|\$(TOPDIR)|$BR|g")
+    KDIR=""
+    for d in "$OUT"/build/linux-*; do
+        [ -f "$d/.config" ] && KDIR=$d
+    done
+    if [ -n "$KDIR" ]; then
+        MISSING=""
+        for f in $FRAG; do
+            [ -f "$f" ] || { echo "WARNING: fragment $f does not exist"; continue; }
+            while IFS= read -r line; do
+                case "$line" in ''|\#*) continue ;; esac
+                case "$line" in *=*) ;; *) continue ;; esac
+                grep -qxF "$line" "$KDIR/.config" || MISSING="$MISSING $line"
+            done < "$f"
+        done
+        if [ -n "$MISSING" ]; then
+            echo
+            echo "WARNING: the kernel config fragment did not fully take."
+            echo "         Missing from $KDIR/.config:"
+            for m in $MISSING; do echo "             $m"; done
+            echo "         The zImage in images/ does NOT have those options."
+            echo "         Force the merge and rebuild the kernel with:"
+            echo "             make -C buildroot O=\"$OUT\" linux-reconfigure && $0"
+            echo
+        else
+            echo "== Kernel config fragment: all options present"
+        fi
+    fi
+fi
+
 echo
 echo "== Artifacts in $OUT/images"
 ls -la "$OUT/images"

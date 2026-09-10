@@ -1,0 +1,39 @@
+# Kernel options merged on top of socfpga_defconfig.
+#
+# Wired to the build through BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES in
+# config/chameleon96_config. Buildroot merges the fragment into the kernel
+# .config once and guards that with .stamp_dotconfig, so editing this file
+# alone is not enough -- build.sh notices the change and runs
+# linux-reconfigure, in that order (see the comment at the top of build.sh).
+
+#
+# USB Ethernet: Realtek RTL8152 / RTL8153 (0bda:8152, 0bda:8153 and friends).
+#
+# Built as a MODULE on purpose, not built in. The board's rootfs uses devtmpfs
+# with neither mdev nor eudev, so there is no uevent helper and nothing ever
+# calls modprobe by itself; the module is loaded at boot from
+# /etc/modules-load.d/ch96-net.conf instead. A USB driver that is already
+# resident binds to its device whenever that device shows up, so loading it up
+# front covers hot-plug too.
+#
+# USB_RTL8152 selects MII, PHYLIB, CRC32 and CRYPTO_SHA256 by itself.
+#
+CONFIG_NET_VENDOR_REALTEK=y
+CONFIG_USB_NET_DRIVERS=y
+CONFIG_USB_RTL8152=m
+
+#
+# THE ON-BOARD WiFi IS NOT HERE, and that is not an oversight.
+#
+# The Chameleon96 carries a Sterling LWB 450-0152 R2 (Broadcom BCM4343W),
+# which is an SDIO part. The Cyclone V HPS has exactly one SD/MMC controller
+# -- mmc@ff704000, the only one in socfpga.dtsi -- and
+# socfpga_cyclone5_chameleon96.dts gives it to the microSD slot. That device
+# tree has no second mmc, no SDIO node, no mmc-pwrseq and nothing Broadcom in
+# it, so the module's SDIO bus must run to the FPGA fabric instead.
+#
+# Enabling brcmfmac would therefore build a driver that never probes. Making
+# it work needs an FPGA design that provides an SDIO host, a device tree that
+# describes it, and the NVRAM calibration file for this exact module, which
+# linux-firmware does not carry. A USB WiFi dongle needs none of that.
+#

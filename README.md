@@ -211,6 +211,54 @@ Set `fb_terminal=0` in `MiSTer.ini` to fall back to the OSD window, which
 needs none of them. The scripts detect which one they are on and adjust their
 output width.
 
+## Networking
+
+A USB Ethernet adapter with a Realtek **RTL8152 / RTL8153** chipset works out
+of the box: plug it in, boot, and the OSD Information panel shows the address.
+`config/linux.fragment` builds `r8152` as a module and
+`BR2_PACKAGE_LINUX_FIRMWARE_RTL_815X` supplies the `rtl_nic` blobs.
+
+Two small files in the overlay do the rest, and neither is optional:
+
+- `etc/modules-load.d/ch96-net.conf` — the rootfs uses devtmpfs with neither
+  mdev nor eudev, so there is **no uevent helper**: device nodes appear but
+  nothing ever calls `modprobe`. `/etc/init.d/S11modules` reading this file is
+  the only thing that loads the driver. Without it the adapter enumerates on
+  USB and no driver ever claims it.
+- `etc/network/interfaces` — buildroot generates this file from
+  `BR2_SYSTEM_DHCP`, which is empty, so its version has the loopback stanza
+  and nothing else. Without an `eth0` stanza the interface comes up with no
+  address, and `getNet()` in Main_MiSTer counts only an interface named
+  `eth0` (or `wlan*`) that carries a non-link-local IPv4 address — so the OSD
+  reports "No network" with the driver working perfectly.
+
+Two OSD entries:
+
+**Scripts → `net_info`** — read-only. Reports the interfaces, the USB devices
+and which driver claimed them, whether `r8152` is built and loaded, and
+whether anything is set up to ask for an address; then names which of the four
+possible causes applies: the module was never built, built but not loaded,
+loaded but not bound, or bound with no IPv4.
+
+**Scripts → `net_up`** — does what the boot cannot: brings up an adapter
+plugged in with the board already running. The driver is resident so `eth0`
+appears by itself, but with no uevent helper nothing asks for a lease. It
+loads the module if needed, waits for the interface, runs DHCP and polls for
+the address — `ifup` returns before the lease arrives, because buildroot
+builds busybox with `udhcpc -t1 ... -b`.
+
+`build.sh` checks after every build that each `CONFIG_` line in
+`config/linux.fragment` really reached the kernel `.config`, and says which
+ones did not. Buildroot merges a fragment once and guards that with a stamp
+file, so a fragment that failed to take produces a perfectly successful build
+with the driver simply absent.
+
+The **on-board WiFi** (Sterling LWB 450-0152 R2, BCM4343W) is not supported,
+and cannot be without more than a driver: it is an SDIO part, the Cyclone V
+HPS has exactly one SD/MMC controller and the device tree gives it to the
+microSD slot. `config/linux.fragment` explains what enabling it would actually
+require. A USB WiFi dongle needs none of that.
+
 ## Booting
 
 - The SPL initializes the HPS and loads U-Boot.
