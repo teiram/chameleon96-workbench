@@ -259,6 +259,63 @@ HPS has exactly one SD/MMC controller and the device tree gives it to the
 microSD slot. `config/linux.fragment` explains what enabling it would actually
 require. A USB WiFi dongle needs none of that.
 
+## SSH
+
+Once the board has an address it accepts SSH the way a stock MiSTer does:
+
+```sh
+ssh root@<board ip>      # password: 1
+```
+
+`scp` and SFTP (WinSCP, FileZilla) work over the same connection. The daemon
+is buildroot's openssh with its own `S50sshd` — which is exactly what a MiSTer
+runs; their `security_fixes.sh` disables SSH by renaming that same file, and
+looks for that same password to warn that it is still the installer default.
+
+Two details decide whether this works at all, and both fail without a word in
+any log:
+
+- `BR2_PACKAGE_OPENSSH_KEY_UTILS`. `S50sshd` opens with
+  `[ -f /usr/bin/ssh-keygen ] || exit 0`, so without `ssh-keygen` the daemon
+  exits with status 0 at every boot and nothing is logged anywhere.
+- `PermitRootLogin yes` in `config/rootfs-overlay/etc/ssh/sshd_config`. The
+  openssh package only ever rewrites `UsePAM` in the config it installs;
+  upstream ships `PermitRootLogin` commented out, and OpenSSH's compiled-in
+  default has been `prohibit-password` since 7.0 — which refuses precisely a
+  root login with a password.
+
+That config also turns off reverse DNS lookups, which otherwise cost about ten
+seconds of apparent hang per login on a LAN with no reverse zone, and serves
+SFTP through `internal-sftp`, so there is no `/usr/libexec` path to get wrong.
+`PermitEmptyPasswords no` is deliberate rather than redundant: if the root
+password ever ended up empty, that line is what stops the board becoming an
+open shell on the LAN.
+
+The password comes from `BR2_TARGET_GENERIC_ROOT_PASSWD="1"`. Unlike most
+things here it needs no package rebuild: buildroot applies it from a
+`TARGET_FINALIZE_HOOK`, which runs on every build.
+
+Host keys are generated on the board at first boot by `ssh-keygen -A`, so each
+board gets its own — a MiSTer instead ships them inside the SD-Installer
+image, which is why every MiSTer in the world shares the same set.
+
+**Scripts → `ssh_status`** checks the six things that all have to hold —
+binaries, host keys, daemon listening, config, root password, `/dev/pts` — and
+names the one that does not. The password check is real rather than assumed:
+the stored hash carries its own salt, so it re-hashes `1` with that salt and
+compares. The hash itself is never printed.
+
+`build.sh` also checks after every build that the symbols which are set really
+produced something in `rootfs.tar` — `ssh-keygen` and `sshd` among them — and
+that root ends up with a usable password. Buildroot does not reconfigure an
+already-built package when one of its sub-options changes, so a missing binary
+is otherwise a completely successful build that simply does not work on the
+board.
+
+`root` / `1` is the best-known password in the retro-hardware world. It is
+fine on a development LAN; run `passwd` before that board sees a network you
+do not control.
+
 ## Booting
 
 - The SPL initializes the HPS and loads U-Boot.

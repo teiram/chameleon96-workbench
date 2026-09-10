@@ -214,6 +214,71 @@ if [ -n "$FRAG" ]; then
     fi
 fi
 
+# --------------------------------------------- 7. did the rootfs get the parts?
+# The mirror image of the check above, for packages instead of the kernel. A
+# symbol can be set, the package can build, and the binary can still be absent
+# -- most often because buildroot did not reconfigure an already-built package
+# after a sub-option changed. Every one of these failures is silent at build
+# time and only shows up on the board, usually as something unrelated:
+# a blinking cursor instead of script output, or an sshd that never starts.
+#
+# One line per symbol: SYMBOL followed by the paths that would satisfy it, any
+# one of which is enough (buildroot puts things under /sbin or /usr/sbin
+# depending on merged-usr).
+ROOTFS_TAR="$OUT/images/rootfs.tar"
+if [ -f "$ROOTFS_TAR" ]; then
+    TARLIST="$TMP/tarlist"
+    if tar tf "$ROOTFS_TAR" > "$TARLIST" 2>/dev/null; then
+        ABSENT=""
+        # shellcheck disable=SC2162
+        while read sym paths; do
+            case "$sym" in ''|\#*) continue ;; esac
+            grep -qx "$sym=y" "$OUT/.config" || continue
+            found=0
+            for p in $paths; do
+                grep -qx "./$p" "$TARLIST" && { found=1; break; }
+            done
+            [ "$found" -eq 1 ] || ABSENT="$ABSENT
+    $sym -> none of: $paths"
+        done <<'CHECKS'
+BR2_PACKAGE_BASH                bin/bash usr/bin/bash
+BR2_PACKAGE_UTIL_LINUX_AGETTY   sbin/agetty usr/sbin/agetty
+BR2_PACKAGE_UTIL_LINUX_PARTX    sbin/partx usr/sbin/partx usr/bin/partx
+BR2_PACKAGE_E2FSPROGS_RESIZE2FS sbin/resize2fs usr/sbin/resize2fs
+BR2_PACKAGE_OPENSSH_SERVER      usr/sbin/sshd sbin/sshd
+BR2_PACKAGE_OPENSSH_KEY_UTILS   usr/bin/ssh-keygen usr/sbin/ssh-keygen
+CHECKS
+        if [ -n "$ABSENT" ]; then
+            echo
+            echo "WARNING: these symbols are set but produced nothing in the rootfs:$ABSENT"
+            echo "         Buildroot does not reconfigure an already-built package when"
+            echo "         one of its sub-options changes. Force the ones you need:"
+            echo "             make -C buildroot O=\"$OUT\" <package>-reconfigure && $0"
+            echo
+        fi
+
+        # sshd is the one daemon here that can fail to start with nothing in
+        # any log: S50sshd opens with "[ -f /usr/bin/ssh-keygen ] || exit 0",
+        # and sshd_config says PermitEmptyPasswords no, so an empty root
+        # password refuses every login instead of accepting anything.
+        if grep -qx 'BR2_PACKAGE_OPENSSH=y' "$OUT/.config"; then
+            SH="$TMP/shadow"
+            if tar xf "$ROOTFS_TAR" -O ./etc/shadow > "$SH" 2>/dev/null; then
+                if awk -F: '$1 == "root" && $2 != "" && $2 !~ /^[!*]/ { ok = 1 } END { exit !ok }' "$SH"; then
+                    echo "== SSH: root has a password set"
+                else
+                    echo
+                    echo "WARNING: openssh is enabled but root has no usable password in"
+                    echo "         /etc/shadow, and sshd_config sets PermitEmptyPasswords no,"
+                    echo "         so every SSH login would be refused. Check"
+                    echo "         BR2_TARGET_GENERIC_ROOT_PASSWD in the defconfig."
+                    echo
+                fi
+            fi
+        fi
+    fi
+fi
+
 echo
 echo "== Artifacts in $OUT/images"
 ls -la "$OUT/images"
